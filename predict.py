@@ -81,7 +81,7 @@ def predict_composite(model, image: np.ndarray) -> np.ndarray:
     return composite
 
 
-def predict_average_composite(model, image: np.ndarray) -> np.ndarray:
+def predict_average_composite(model, image: np.ndarray, random_locations: bool = False) -> np.ndarray:
     # Input/output shapes of the model
     in_shape = model.layers[0].input_shape[1:4]
     out_shape = model.layers[-1].output_shape[1:4]
@@ -101,7 +101,7 @@ def predict_average_composite(model, image: np.ndarray) -> np.ndarray:
     x_steps = image.shape[0] - in_shape[0]
     y_steps = image.shape[1] - in_shape[1]
 
-    if False:
+    if random_locations:
         for n in range(100):
             x = random.randrange(0, x_steps)
             y = random.randrange(0, y_steps)
@@ -130,15 +130,12 @@ def predict_average_composite(model, image: np.ndarray) -> np.ndarray:
                 y_out = int((y + random.random()) * shape_ratio[1])
                 result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] += row_predicitons[y]
 
-            print(f"{x}/{x_steps} {row_predicitons.shape}")
-
     result /= max(result.flat)
     return result
 
 
 assert os.path.isdir(sys.argv[1])
-assert os.path.isdir(sys.argv[2])
-model_to_load = sys.argv[2]
+model_to_load = sys.argv[1]
 
 model = keras.models.load_model(model_to_load)
 in_shape = model.layers[0].input_shape[1:4]
@@ -147,10 +144,15 @@ print("Loaded model with\n"
       f"     input shape: {in_shape}\n"
       f"    output shape: {out_shape}")
 
+datasets = ["data/abstract_paintings"]
+for d in os.listdir("data/large"):
+    datasets.append(f"data/large/{d}")
+
 # Plot some predictions for loaded images
-plt.figure()
-x_data, y_data = load_data(sys.argv[1], in_shape, out_shape, max_count=4)
-plot_predictions(model, x_data, training_data=y_data)
+for dset in datasets:
+    plt.figure()
+    x_data, y_data = load_data(dset, in_shape, out_shape, max_count=4)
+    plot_predictions(model, x_data, training_data=y_data)
 
 # Plot some predictions for noise input
 plt.figure()
@@ -162,27 +164,48 @@ plt.figure()
 squares_data = gen_rectangles((4, *in_shape))
 plot_predictions(model, squares_data)
 
+
+def random_av_comp(model, img):
+    return predict_average_composite(model, img, random_locations=True)
+
+
 # Plot some composite images, using various compositing schemes
-for compositing_method in [predict_composite, predict_average_composite]:
+for compositing_method in [predict_composite, predict_average_composite, random_av_comp]:
     plt.figure()
 
-    plt.subplot(321)
+    plt.subplot(4, 4, 1)
     img = gen_rectangles((1, in_shape[0] * 4, in_shape[1] * 4, 3))[0]
     plt.imshow(img)
-    plt.subplot(322)
+    plt.subplot(4, 4, 2)
     plt.imshow(compositing_method(model, img))
 
-    plt.subplot(323)
+    plt.subplot(4, 4, 3)
     img = gen_rectangles((1, in_shape[0] * 4, in_shape[1] * 4, 3), noise_strength=0.5)[0]
     plt.imshow(img)
-    plt.subplot(324)
+    plt.subplot(4, 4, 4)
     plt.imshow(compositing_method(model, img))
 
-    plt.subplot(325)
+    plt.subplot(4, 4, 5)
     img = model.predict(np.random.random((1, *in_shape)))[0]
     img = resize_numpy_array(img, (in_shape[0] * 4, in_shape[1] * 4))
     plt.imshow(img)
-    plt.subplot(326)
+    plt.subplot(4, 4, 6)
     plt.imshow(compositing_method(model, img))
+
+    plt.subplot(4, 4, 7)
+    img, _ = load_data("data/landscapes/single", (in_shape[0] * 4, in_shape[1] * 4, 3), out_shape)
+    img = img[0]
+    plt.imshow(img)
+    plt.subplot(4, 4, 8)
+    plt.imshow(compositing_method(model, img))
+
+    plt.subplot(4, 4, 9)
+    img, _ = load_data("data/abstract_paintings/single", (in_shape[0] * 4, in_shape[1] * 4, 3), out_shape)
+    img = img[0]
+    plt.imshow(img)
+    plt.subplot(4, 4, 10)
+    plt.imshow(compositing_method(model, img))
+
+    plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
 
 plt.show()

@@ -16,17 +16,13 @@ output_activation = "sigmoid"
 sharp_activation = "leaky_relu"
 
 model = keras.models.Sequential()
-model.add(layers.UpSampling2D(size=(8, 8), input_shape=inp_shape))
+model.add(layers.UpSampling2D(size=(16, 16), input_shape=inp_shape))
 model.add(layers.Conv2D(filters=3 * 3 * 3, kernel_size=(5, 5), activation=sharp_activation))
-# model.add(layers.UpSampling2D(size=(2, 2)))
 model.add(layers.Conv2D(filters=3 * 3 * 3, kernel_size=(11, 11), activation=smooth_activation))
-# model.add(layers.UpSampling2D(size=(2, 2)))
 model.add(layers.Conv2D(filters=3 * 3 * 3, kernel_size=(9, 9), activation=sharp_activation))
-model.add(layers.UpSampling2D(size=(8, 8)))
+model.add(layers.UpSampling2D(size=(4, 4)))
 model.add(layers.Conv2D(filters=3 * 3 * 3, kernel_size=(7, 7), activation=smooth_activation))
-# model.add(layers.UpSampling2D(size=(2, 2)))
 model.add(layers.Conv2D(filters=3 * 3, kernel_size=(5, 5), activation=sharp_activation))
-# model.add(layers.UpSampling2D(size=(2, 2)))
 model.add(layers.Conv2D(filters=3, kernel_size=(3, 3), activation=output_activation))
 
 # Print info about the model
