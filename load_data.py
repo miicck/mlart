@@ -26,6 +26,39 @@ def resize_numpy_array(input: np.ndarray, out_size: Tuple[int]) -> np.ndarray:
     return np.array(img.resize(out_size))
 
 
+def load_file(filename: str,
+              input_shape: Tuple[int, int, int],
+              output_shape: Tuple[int, int, int],
+              data_filter=None,
+              input_filter=None,
+              output_filter=None) -> Tuple[np.ndarray, np.ndarray]:
+    # Load image
+    img = Image.open(filename)
+
+    if data_filter is not None:
+        # Apply filter to image
+        img = np.array(img.resize(img.size))
+        img = img.astype(float)
+        img /= max(img.flat)
+        img = data_filter(img) * 256
+        img = img.astype(np.uint8)
+        img = PIL.Image.fromarray(img)
+
+    # Save filtered image as input data
+    in_data = np.array(img.resize(input_shape[:2]), dtype=float)[:, :, :3]
+    in_data /= max(in_data.flat)
+    if input_filter is not None:
+        in_data = input_filter(in_data)
+
+    # Save raw image as output data
+    out_data = np.array(img.resize(output_shape[:2]), dtype=float)[:, :, :3]
+    out_data /= max(out_data.flat)
+    if output_filter is not None:
+        out_data = output_filter(out_data)
+
+    return in_data, out_data
+
+
 def load_data(directory: str,
               input_shape: Tuple[int, int, int],
               output_shape: Tuple[int, int, int],
@@ -47,32 +80,8 @@ def load_data(directory: str,
     out_data = np.zeros((len(data), *output_shape))
 
     for i, filename in enumerate(data):
-        try:
-            img = Image.open(filename)
-        except:
-            continue
-
-        if data_filter is not None:
-            img = np.array(img.resize(img.size))
-            img = img.astype(float)
-            img /= max(img.flat)
-            img = data_filter(img) * 256
-            img = img.astype(np.uint8)
-            img = PIL.Image.fromarray(img)
-
-        # Save filtered image as input data
-        in_data[i] = np.array(img.resize(input_shape[:2]))[:, :, :3]
-        in_data[i] /= max(in_data[i].flat)
-        if input_filter is not None:
-            in_data[i] = input_filter(in_data[i])
-
-        # Save raw image as output data
-        out_data[i] = np.array(img.resize(output_shape[:2]))[:, :, :3]
-        out_data[i] /= max(out_data[i].flat)
-        if output_filter is not None:
-            out_data[i] = output_filter(out_data[i])
-
+        in_data[i], out_data[i] = load_file(filename, input_shape, output_shape,
+                                            data_filter=data_filter, input_filter=input_filter,
+                                            output_filter=output_filter)
         print(f"\rLoaded {i + 1}/{len(data)}           ", end="")
-    print()
-
     return in_data, out_data

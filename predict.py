@@ -180,7 +180,7 @@ for compositing_method in [predict_composite, predict_average_composite, random_
     plt.imshow(compositing_method(model, img))
 
     plt.subplot(4, 4, 3)
-    img = gen_rectangles((1, in_shape[0] * 4, in_shape[1] * 4, 3), noise_strength=0.5)[0]
+    img = np.random.random((in_shape[0] * 4, in_shape[1] * 4, 3))
     plt.imshow(img)
     plt.subplot(4, 4, 4)
     plt.imshow(compositing_method(model, img))
