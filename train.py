@@ -4,10 +4,10 @@ from keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from ml.load_data import load_data, colorize_filter
+from ml.load_data import load_data, load_file, colorize_filter
 import sys
 
-assert os.path.isdir(sys.argv[1])
+assert os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[1])
 
 inp_shape = (8, 8, 3)
 
@@ -32,11 +32,16 @@ print(f" Input shape: {inp_shape}")
 print(f"Output shape: {out_shape}")
 
 # Load input data
-x_data, y_data = load_data(sys.argv[1], inp_shape, out_shape)
+if os.path.isdir(sys.argv[1]):
+    x_data, y_data = load_data(sys.argv[1], inp_shape, out_shape)
+else:
+    x_data = np.zeros((1, *inp_shape))
+    y_data = np.zeros((1, *out_shape))
+    x_data[0], y_data[0] = load_file(sys.argv[1], inp_shape, out_shape)
 
 # Fit model
 model.compile(optimizer="adam", loss="mse")
-history = model.fit(x_data, y_data, epochs=100)
+history = model.fit(x_data, y_data, epochs=1000)
 
 # Remove old model, save new model
 if os.path.isdir("model.save"):
@@ -49,3 +54,14 @@ if False:
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.show()
+
+plt.subplot(131)
+plt.imshow(y_data[0])
+
+plt.subplot(132)
+plt.imshow(x_data[0])
+
+plt.subplot(133)
+plt.imshow(model.predict(x_data[:1])[0])
+
+plt.show()

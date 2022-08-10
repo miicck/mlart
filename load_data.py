@@ -40,7 +40,7 @@ def load_file(filename: str,
     try:
         img = Image.open(filename)
     except PIL.UnidentifiedImageError:
-        return np.zeros((*input_shape, 3)), np.zeros((*output_shape, 3))
+        return np.zeros(input_shape), np.zeros(output_shape)
 
     img = img.convert("RGB")
 
@@ -75,13 +75,16 @@ def load_data(directory: str,
               max_count: int = None,
               data_filter=None,
               input_filter=None,
-              output_filter=None):
+              output_filter=None,
+              shuffle: bool = True):
     assert input_shape[2] == 3
     assert output_shape[2] == 3
 
     # Get data paths
     data = [os.path.join(directory, x) for x in os.listdir(directory) if is_image(x)]
-    random.shuffle(data)
+
+    if shuffle:
+        random.shuffle(data)
     if max_count is not None:
         data = data[:max_count]
 
@@ -91,10 +94,12 @@ def load_data(directory: str,
 
     for i, filename in enumerate(data):
         try:
-            in_data[i], out_data[i] = load_file(filename, input_shape, output_shape,
-                                                data_filter=data_filter, input_filter=input_filter,
-                                                output_filter=output_filter)
+            loaded = load_file(filename, input_shape, output_shape,
+                               data_filter=data_filter, input_filter=input_filter,
+                               output_filter=output_filter)
+            in_data[i], out_data[i] = loaded
         except Exception as e:
+            print(loaded[0].shape, loaded[1].shape)
             raise e from Exception(f"Could not load: {filename}")
         print(f"\rLoaded {i + 1}/{len(data)}           ", end="")
     return in_data, out_data

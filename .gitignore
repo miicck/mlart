@@ -3,3 +3,4 @@ data/large/
 *__pycache__*
 model.save
 previous_models/
+data/backup/

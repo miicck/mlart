@@ -1,5 +1,5 @@
 import random
-from ml.load_data import load_data, colorize_filter, resize_numpy_array
+from ml.load_data import load_data, colorize_filter, resize_numpy_array, load_file
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
@@ -81,7 +81,14 @@ def predict_composite(model, image: np.ndarray) -> np.ndarray:
     return composite
 
 
-def predict_average_composite(model, image: np.ndarray, random_locations: bool = False) -> np.ndarray:
+def predict_average_composite(model, image: np.ndarray, random_locations: bool = False,
+                              random_density: float = 8.0,
+                              compositor: callable = None) -> np.ndarray:
+    if compositor is None:
+        compositor = lambda a, b: a + b
+
+        compositor = lambda a, b: np.maximum(a, b)
+
     # Input/output shapes of the model
     in_shape = model.layers[0].input_shape[1:4]
     out_shape = model.layers[-1].output_shape[1:4]
@@ -103,26 +110,36 @@ def predict_average_composite(model, image: np.ndarray, random_locations: bool =
 
     if random_locations:
 
-        random_location_count = 100
+        random_location_count = (image.shape[0] * image.shape[1]) / (in_shape[0] * in_shape[1])
+        random_location_count = int(random_location_count * random_density + 1)
+        print(random_location_count)
 
-        # Locations of the random subimages
-        x_rands = [random.randrange(0, x_steps) for n in range(random_location_count)]
-        y_rands = [random.randrange(0, y_steps) for n in range(random_location_count)]
+        batch_sizes = [100] * (random_location_count // 100)
+        batch_sizes += [random_location_count - sum(batch_sizes)]
+        assert sum(batch_sizes) == random_location_count
 
-        # Grab the random subimages
-        subimages = np.zeros((random_location_count, *in_shape))
-        for n in range(random_location_count):
-            subimages[n] = image[x_rands[n]:x_rands[n] + in_shape[0], y_rands[n]: y_rands[n] + in_shape[1], :]
+        for batch_size in batch_sizes:
 
-        # Predict from the random subimages
-        predictions = model.predict(subimages)
+            # Locations of the random subimages
+            x_rands = [random.randrange(0, x_steps) for n in range(batch_size)]
+            y_rands = [random.randrange(0, y_steps) for n in range(batch_size)]
 
-        # Save the result (with a random offset to avoid pixelation due to upscaling)
-        for n in range(random_location_count):
-            offsets = np.random.random(2)
-            x_out = int((x_rands[n] + offsets[0]) * shape_ratio[0])
-            y_out = int((y_rands[n] + offsets[1]) * shape_ratio[1])
-            result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] += predictions[n]
+            # Grab the random subimages
+            subimages = np.zeros((batch_size, *in_shape))
+            for n in range(batch_size):
+                subimages[n] = image[x_rands[n]:x_rands[n] + in_shape[0], y_rands[n]: y_rands[n] + in_shape[1], :]
+
+            # Predict from the random subimages
+            predictions = model.predict(subimages)
+
+            # Save the result (with a random offset to avoid pixelation due to upscaling)
+            for n in range(batch_size):
+                offsets = np.random.random(2)
+                x_out = int((x_rands[n] + offsets[0]) * shape_ratio[0])
+                y_out = int((y_rands[n] + offsets[1]) * shape_ratio[1])
+
+                result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] = \
+                    compositor(result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :], predictions[n])
 
     else:
         # Move stencil horizontally
@@ -140,10 +157,15 @@ def predict_average_composite(model, image: np.ndarray, random_locations: bool =
             for y in range(0, y_steps):
                 x_out = int((x + random.random()) * shape_ratio[0])
                 y_out = int((y + random.random()) * shape_ratio[1])
-                result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] += row_predicitons[y]
+                result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] = \
+                    compositor(result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :], row_predicitons[y])
 
     result /= max(result.flat)
     return result
+
+
+def random_av_comp(model, img):
+    return predict_average_composite(model, img, random_locations=True)
 
 
 assert os.path.isdir(sys.argv[1])
@@ -156,12 +178,25 @@ print("Loaded model with\n"
       f"     input shape: {in_shape}\n"
       f"    output shape: {out_shape}")
 
-datasets = ["data/abstract_paintings"]
-for d in os.listdir("data/large"):
-    datasets.append(f"data/large/{d}")
+if len(sys.argv) >= 3:
+    # Plot target
+    plt.figure()
+    plt.subplot(121)
+    img, _ = load_file(sys.argv[2], (128, 128, 3), out_shape)
+    predict = predict_average_composite(model, img, random_locations=True, random_density=8.0)
+    plt.imshow(predict)
+
+    import matplotlib.image
+
+    matplotlib.image.imsave("target_predict.jpg", predict)
+
+    plt.subplot(122)
+    plt.imshow(img)
+    plt.show()
+    quit()
 
 # Plot some predictions for loaded images
-for dset in datasets:
+for dset in ["data/abstract_paintings", "data/my_art"]:
     plt.figure()
     x_data, y_data = load_data(dset, in_shape, out_shape, max_count=4)
     plot_predictions(model, x_data, training_data=y_data)
@@ -175,11 +210,6 @@ plot_predictions(model, noise_data)
 plt.figure()
 squares_data = gen_rectangles((4, *in_shape))
 plot_predictions(model, squares_data)
-
-
-def random_av_comp(model, img):
-    return predict_average_composite(model, img, random_locations=True)
-
 
 # Plot some composite images, using various compositing schemes
 for compositing_method in [predict_composite, random_av_comp]:
@@ -205,7 +235,7 @@ for compositing_method in [predict_composite, random_av_comp]:
     plt.imshow(compositing_method(model, img))
 
     plt.subplot(4, 4, 7)
-    img, _ = load_data("data/landscapes/single", (in_shape[0] * 4, in_shape[1] * 4, 3), out_shape)
+    img, _ = load_data("data/landscapes/", (in_shape[0] * 4, in_shape[1] * 4, 3), out_shape)
     img = img[0]
     plt.imshow(img)
     plt.subplot(4, 4, 8)
