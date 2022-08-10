@@ -102,15 +102,27 @@ def predict_average_composite(model, image: np.ndarray, random_locations: bool =
     y_steps = image.shape[1] - in_shape[1]
 
     if random_locations:
-        for n in range(100):
-            x = random.randrange(0, x_steps)
-            y = random.randrange(0, y_steps)
-            subimage = np.zeros((1, *in_shape))
-            subimage[0] = image[x:x + in_shape[0], y:y + in_shape[1], :]
-            predict = model.predict(subimage)[0]
-            x_out = int((x + random.random()) * shape_ratio[0])
-            y_out = int((y + random.random()) * shape_ratio[1])
-            result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] += predict
+
+        random_location_count = 100
+
+        # Locations of the random subimages
+        x_rands = [random.randrange(0, x_steps) for n in range(random_location_count)]
+        y_rands = [random.randrange(0, y_steps) for n in range(random_location_count)]
+
+        # Grab the random subimages
+        subimages = np.zeros((random_location_count, *in_shape))
+        for n in range(random_location_count):
+            subimages[n] = image[x_rands[n]:x_rands[n] + in_shape[0], y_rands[n]: y_rands[n] + in_shape[1], :]
+
+        # Predict from the random subimages
+        predictions = model.predict(subimages)
+
+        # Save the result (with a random offset to avoid pixelation due to upscaling)
+        for n in range(random_location_count):
+            offsets = np.random.random(2)
+            x_out = int((x_rands[n] + offsets[0]) * shape_ratio[0])
+            y_out = int((y_rands[n] + offsets[1]) * shape_ratio[1])
+            result[x_out:x_out + out_shape[0], y_out:y_out + out_shape[1], :] += predictions[n]
 
     else:
         # Move stencil horizontally
@@ -170,7 +182,7 @@ def random_av_comp(model, img):
 
 
 # Plot some composite images, using various compositing schemes
-for compositing_method in [predict_composite, predict_average_composite, random_av_comp]:
+for compositing_method in [predict_composite, random_av_comp]:
     plt.figure()
 
     plt.subplot(4, 4, 1)

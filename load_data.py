@@ -7,6 +7,10 @@ from PIL import Image
 from typing import Tuple
 
 
+def data_directory() -> str:
+    return os.path.join(os.path.dirname(__file__), "data")
+
+
 def colorize_filter(image: np.ndarray):
     for i in range(3):
         image[:, :, i] += random.random()
@@ -33,7 +37,12 @@ def load_file(filename: str,
               input_filter=None,
               output_filter=None) -> Tuple[np.ndarray, np.ndarray]:
     # Load image
-    img = Image.open(filename)
+    try:
+        img = Image.open(filename)
+    except PIL.UnidentifiedImageError:
+        return np.zeros((*input_shape, 3)), np.zeros((*output_shape, 3))
+
+    img = img.convert("RGB")
 
     if data_filter is not None:
         # Apply filter to image
@@ -44,19 +53,20 @@ def load_file(filename: str,
         img = img.astype(np.uint8)
         img = PIL.Image.fromarray(img)
 
-    # Save filtered image as input data
-    in_data = np.array(img.resize(input_shape[:2]), dtype=float)[:, :, :3]
-    in_data /= max(in_data.flat)
+    in_array = np.array(img.resize(input_shape[:2]), dtype=float)
+    out_array = np.array(img.resize(output_shape[:2]), dtype=float)
+
+    # Normalize to [0, 1]
+    in_array /= max(in_array.flat)
+    out_array /= max(out_array.flat)
+
+    # Apply filters
     if input_filter is not None:
-        in_data = input_filter(in_data)
-
-    # Save raw image as output data
-    out_data = np.array(img.resize(output_shape[:2]), dtype=float)[:, :, :3]
-    out_data /= max(out_data.flat)
+        in_array = input_filter(in_array)
     if output_filter is not None:
-        out_data = output_filter(out_data)
+        out_array = output_filter(out_array)
 
-    return in_data, out_data
+    return in_array, out_array
 
 
 def load_data(directory: str,
@@ -80,8 +90,11 @@ def load_data(directory: str,
     out_data = np.zeros((len(data), *output_shape))
 
     for i, filename in enumerate(data):
-        in_data[i], out_data[i] = load_file(filename, input_shape, output_shape,
-                                            data_filter=data_filter, input_filter=input_filter,
-                                            output_filter=output_filter)
+        try:
+            in_data[i], out_data[i] = load_file(filename, input_shape, output_shape,
+                                                data_filter=data_filter, input_filter=input_filter,
+                                                output_filter=output_filter)
+        except Exception as e:
+            raise e from Exception(f"Could not load: {filename}")
         print(f"\rLoaded {i + 1}/{len(data)}           ", end="")
     return in_data, out_data

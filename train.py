@@ -36,7 +36,7 @@ x_data, y_data = load_data(sys.argv[1], inp_shape, out_shape)
 
 # Fit model
 model.compile(optimizer="adam", loss="mse")
-history = model.fit(x_data, y_data, epochs=1000)
+history = model.fit(x_data, y_data, epochs=100)
 
 # Remove old model, save new model
 if os.path.isdir("model.save"):
