@@ -4,7 +4,7 @@ from keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from ml.load_data import load_data, load_file, colorize_filter
+from mlart.load_data import load_data, load_file, colorize_filter
 import sys
 
 assert os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[1])

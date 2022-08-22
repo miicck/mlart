@@ -1,5 +1,5 @@
 import random
-from ml.load_data import load_data, colorize_filter, resize_numpy_array, load_file
+from mlart.load_data import load_data, colorize_filter, resize_numpy_array, load_file
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
